@@ -31,9 +31,18 @@
 
 #include "mongo/base/string_data.h"
 
+#include <string_view>
+
+#include <boost/optional.hpp>
+
 namespace mongo {
 
 void validateRseqKernelCompat();
 bool isKernelVersionSafeForTCMallocPerCPUCache(StringData release);
+
+// Ubuntu /proc/version_signature is "Ubuntu {PACKAGE-KERNEL} {UPSTREAM-VERSION}".
+// Returns the upstream version, or none when the line is not that form.
+boost::optional<std::string_view> ubuntuKernelVersionFromVersionSignature(
+    std::string_view versionSignature);
 
 }  // namespace mongo
