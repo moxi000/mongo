@@ -1111,7 +1111,14 @@ def _impl(ctx):
         env_sets = [
             env_set(
                 actions = all_link_actions,
-                env_entries = [env_entry(key = "LD_LIBRARY_PATH", value = "external/mongo_toolchain_v4/stow/gcc-v4/lib64/")],
+                # Host libicu on Ubuntu 24.04+ needs GLIBCXX_3.4.30. The toolchain
+                # driver is linked to that host library, so the system libstdc++
+                # must be visible before gcc 11.3's copy. The toolchain directory
+                # stays on the path so mold can still find libatomic.so.1.
+                env_entries = [env_entry(
+                    key = "LD_LIBRARY_PATH",
+                    value = "/usr/lib/x86_64-linux-gnu:/usr/lib/aarch64-linux-gnu:external/mongo_toolchain_v4/stow/gcc-v4/lib64/",
+                )],
             ),
         ],
     )
