@@ -83,6 +83,8 @@ TEST(StartupCheckRseq, UnsafeKernels) {
     ASSERT_FALSE(isKernelVersionSafeForTCMallocPerCPUCache("7.0.11-aws"));
     ASSERT_FALSE(isKernelVersionSafeForTCMallocPerCPUCache("7.0.13"));
     ASSERT_FALSE(isKernelVersionSafeForTCMallocPerCPUCache("7.0.13-generic"));
+    // Ubuntu package ABI. uname -r on the affected host; not the upstream version.
+    ASSERT_FALSE(isKernelVersionSafeForTCMallocPerCPUCache("7.0.0-38-generic"));
 }
 
 TEST(StartupCheckRseq, UnparseableReturnsTrue) {
@@ -96,6 +98,56 @@ TEST(StartupCheckRseq, UnparseableReturnsTrue) {
     ASSERT_TRUE(isKernelVersionSafeForTCMallocPerCPUCache("6.18"));
     ASSERT_TRUE(isKernelVersionSafeForTCMallocPerCPUCache("6.19"));
     ASSERT_TRUE(isKernelVersionSafeForTCMallocPerCPUCache("6.19."));
+}
+
+TEST(UbuntuKernelVersion, VersionSignatureParsing) {
+    ASSERT_EQ(ubuntuKernelVersionFromVersionSignature("Ubuntu"), boost::none);
+    ASSERT_EQ(ubuntuKernelVersionFromVersionSignature("Ubuntu "), boost::none);
+    ASSERT_EQ(ubuntuKernelVersionFromVersionSignature("Unrelated"), boost::none);
+    ASSERT_EQ(ubuntuKernelVersionFromVersionSignature("Ubuntu 6.5.0-1022.22~22.04.1-aws-6.5.13"),
+              boost::none);
+    ASSERT_EQ(ubuntuKernelVersionFromVersionSignature("Debian 6.5.0-1022.22~22.04.1-aws 6.5.13"),
+              boost::none);
+    ASSERT_EQ(ubuntuKernelVersionFromVersionSignature("Ubuntu 6.5.0-1022.22~22.04.1-aws 6.5.13"),
+              std::string_view{"6.5.13"});
+    ASSERT_EQ(ubuntuKernelVersionFromVersionSignature("Ubuntu 11 2"), std::string_view{"2"});
+    ASSERT_EQ(ubuntuKernelVersionFromVersionSignature("Ubuntu 1 2"), std::string_view{"2"});
+    ASSERT_EQ(ubuntuKernelVersionFromVersionSignature("Ubuntu 7.0.14-tricky 2"),
+              std::string_view{"2"});
+    ASSERT_EQ(ubuntuKernelVersionFromVersionSignature("Ubuntu 7.0.0 7.0.14"),
+              std::string_view{"7.0.14"});
+    ASSERT_EQ(ubuntuKernelVersionFromVersionSignature("Ubuntu 7.0.0-2-tricky 7.0.12"),
+              std::string_view{"7.0.12"});
+    ASSERT_EQ(ubuntuKernelVersionFromVersionSignature("Ubuntu 7.0.0-2-tricky 7.0.12-aws"),
+              std::string_view{"7.0.12-aws"});
+    ASSERT_EQ(ubuntuKernelVersionFromVersionSignature("Ubuntu 7.0.0-2-tricky 7.0.12-32-generic"),
+              std::string_view{"7.0.12-32-generic"});
+    ASSERT_EQ(ubuntuKernelVersionFromVersionSignature(
+                  "Ubuntu 6.5.0-1022.22~22.04.1-aws 6.5.13 extra-string"),
+              std::string_view{"6.5.13 extra-string"});
+
+    // For the pathological double space cases, we assume the elements are empty strings.
+    ASSERT_EQ(ubuntuKernelVersionFromVersionSignature("Ubuntu  1"), std::string_view{"1"});
+    ASSERT_EQ(ubuntuKernelVersionFromVersionSignature("Ubuntu   1"), std::string_view{" 1"});
+    ASSERT_EQ(ubuntuKernelVersionFromVersionSignature("Ubuntu  1 2"), std::string_view{"1 2"});
+    ASSERT_EQ(ubuntuKernelVersionFromVersionSignature("Ubuntu 1 2  3"), std::string_view{"2  3"});
+    ASSERT_EQ(ubuntuKernelVersionFromVersionSignature("Ubuntu 1  2"), std::string_view{" 2"});
+
+    // Affected host: uname -r is 7.0.0-38-generic and version_signature is this line.
+    // Upstream 7.0.14 is the fixed kernel. A signature that still says 7.0.13 stays broken.
+    // A line with no upstream field is rejected by the parser.
+    ASSERT_EQ(
+        ubuntuKernelVersionFromVersionSignature("Ubuntu 7.0.0-38.38-generic 7.0.14"),
+        std::string_view{"7.0.14"});
+    ASSERT_TRUE(isKernelVersionSafeForTCMallocPerCPUCache("7.0.14"));
+    ASSERT_EQ(
+        ubuntuKernelVersionFromVersionSignature("Ubuntu 7.0.0-38.38-generic 7.0.13"),
+        std::string_view{"7.0.13"});
+    ASSERT_FALSE(isKernelVersionSafeForTCMallocPerCPUCache("7.0.13"));
+    ASSERT_EQ(ubuntuKernelVersionFromVersionSignature("Ubuntu 7.0.0-38.38-generic"), boost::none);
+    ASSERT_EQ(ubuntuKernelVersionFromVersionSignature(""), boost::none);
+    ASSERT_EQ(ubuntuKernelVersionFromVersionSignature("ubuntu 7.0.0-38.38-generic 7.0.14"),
+              boost::none);
 }
 
 }  // namespace
